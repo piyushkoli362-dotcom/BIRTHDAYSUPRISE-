@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/client";
 export default function Auth({
@@ -12,6 +12,8 @@ export default function Auth({
   const [signup, setSignup] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const router = useRouter();
   return (
     <div className="auth-card">
@@ -71,7 +73,7 @@ export default function Auth({
             placeholder="At least 10 characters"
           />
         </label>
-        <button className="primary" disabled={busy}>
+        <button className="primary" disabled={busy || !ready}>
           {busy ? "One moment…" : signup ? "Create account" : "Sign in"} →
         </button>
       </form>

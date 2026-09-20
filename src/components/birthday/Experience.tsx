@@ -122,8 +122,10 @@ function Music({ url }: { url: string }) {
 }
 export default function Experience({ page }: { page: BirthdayPage }) {
   const theme = getTheme(page.themeId);
+  const [ready, setReady] = useState(false);
   const [lightEffects, setLightEffects] = useState(false);
   useEffect(() => {
+    setReady(true);
     const nav = navigator as Navigator & {
       deviceMemory?: number;
       connection?: { saveData?: boolean };
@@ -228,6 +230,7 @@ export default function Experience({ page }: { page: BirthdayPage }) {
             <span className="gold-rule" />
             <button
               className="primary"
+              disabled={!ready}
               onClick={() => {
                 setStarted(true);
                 setTimeout(
