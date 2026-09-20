@@ -82,7 +82,17 @@ export async function authenticate(
     const { data, error } = signup
       ? await client.auth.signUp({ email, password })
       : await client.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === 'over_email_send_rate_limit' || /email rate limit/i.test(error.message))
+        throw new Error('Confirmation emails are temporarily unavailable. Existing users can use Sign in. New accounts need the site email service to be configured; repeated signup attempts will not help.');
+      if (error.code === 'over_request_rate_limit' || error.status === 429)
+        throw new Error('Too many authentication attempts. Please wait before trying again.');
+      if (error.code === 'email_not_confirmed')
+        throw new Error('Please confirm your email before signing in. If no email arrived, contact the site owner; creating the account again will not fix delivery.');
+      if (error.code === 'invalid_credentials')
+        throw new Error('Incorrect email or password. Use Create account only if you are new here.');
+      throw new Error(error.message);
+    }
     if (!data.session) return { confirmation: true };
     token = data.session.access_token;
     age = 60 * 60 * 24 * 30;

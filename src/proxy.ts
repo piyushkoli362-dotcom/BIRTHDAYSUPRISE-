@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 // Refresh is only session maintenance. All authorization is enforced again in the repository/RLS.
 export async function proxy(request: NextRequest) {
+  // Password authentication must not wait for an unrelated stale session refresh.
+  if (request.nextUrl.pathname.startsWith('/api/auth/')) return NextResponse.next();
   const url = process.env.SUPABASE_URL,
     key = process.env.SUPABASE_ANON_KEY;
   const refresh = request.cookies.get("birthday-refresh")?.value;

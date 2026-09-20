@@ -2,8 +2,10 @@ export async function api<T>(
   url: string,
   method = "GET",
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const r = await fetch(url, {
+    signal,
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,

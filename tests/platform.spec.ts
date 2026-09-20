@@ -19,22 +19,22 @@ test("multi-user creator, uploads, privacy, publishing and interactions", async 
   page.on("pageerror", (e) => errors.push(e.message));
   const token = Date.now().toString();
   await page.goto("/login");
+  await page.getByRole('button', {name:'Create account',exact:true}).click();
   await page
     .getByLabel("Email address")
     .fill("creator-" + token + "@example.com");
   await page
     .getByLabel("Password", { exact: true })
     .fill("A-strong-test-password");
-  await page.getByRole("button", { name: /Create account/ }).click();
+  await page.locator('form').getByRole("button", { name: /Create account/ }).click();
   await expect(page).toHaveURL(/dashboard/);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   expect((await page.request.get('/api/pages')).status()).toBe(401);
   await page.goto('/login');
-  await page.getByRole('button', {name:'Already have an account? Sign in'}).click();
   await page.getByLabel('Email address').fill('creator-'+token+'@example.com');
   await page.getByLabel('Password', {exact:true}).fill('A-strong-test-password');
-  await page.getByRole('button', {name:/^Sign in/}).click();
+  await page.locator('form').getByRole('button', {name:/^Sign in/}).click();
   await expect(page).toHaveURL(/dashboard/);
   await page.getByRole("link", { name: "Create new", exact: true }).click();
   await expect(page.getByLabel("Recipient name")).toBeVisible();
