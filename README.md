@@ -24,7 +24,7 @@ The local fallback keeps accounts, hashed passwords, sessions, birthday configur
 - /birthday/mahima — clearly labeled sample page, configured only in src/data/demo.ts
 
 ## Connect Supabase before hosting publicly
-1. Create a Supabase project and run `supabase/schema.sql` in its SQL editor.
+1. Create a Supabase project and run `supabase/schema.sql`, then `supabase/vercel-uploads.sql` in its SQL editor.
 2. Configure email/password authentication and your Auth Site URL. With email confirmation enabled, confirm the email before signing in.
 3. Set server environment variables `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the publishable/anon key, never a service-role key).
 4. Remove `ALLOW_LOCAL_DB=true` on the public host. The application refuses to use SQLite in production without that explicit development override.
@@ -44,7 +44,9 @@ Supabase stores page configuration atomically as JSONB, with indexed ownership a
 - Removing media from an editor removes the reference. Unreferenced upload bytes are retained until the page is deleted, allowing in-flight auto-save/retry recovery. Deleting a page cleans the page's media.
 - Duplication copies selected media into the new page's private folder.
 - Local account upload quota: 200 MB. Configure Storage/project quotas and edge rate limiting for the expected production traffic.
-- Supply a host with a request-body limit above 21 MB. Hosts with smaller function limits require a direct, signed Storage upload flow.
+- Cloud uploads go directly to private staging storage with an owner-authorized signed upload URL. The server then validates the bytes, re-encodes photos, moves valid media into the private asset bucket, and removes staging data. Local uploads continue using multipart requests.
+- Cloud playback uses 60-second signed redirects, avoiding Vercel's response-size limit. Unpublishing prevents new signed URLs; already-issued URLs may remain usable for up to 60 seconds.
+- Interrupted staging uploads may remain until cleaned up by the project operator; monitor the free plan's Storage quota.
 
 ## Personalization and themes
 Birthday data is in src/types/birthday.ts. Everything shown to recipients comes from the page configuration.
@@ -65,4 +67,3 @@ Tests cover signup, owned creation, photo/audio uploads, draft persistence, owne
 
 ## Deployment boundary
 The local server is not an internet deployment. Public links work while this server is reachable; internet sharing requires a deployed host and Supabase. Payments, analytics, custom domains and plans are intentionally not implemented. No claims of tested cloud deployment or load capacity are made.
-

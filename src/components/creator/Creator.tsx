@@ -148,10 +148,12 @@ export default function Creator({
           throw new Error("Choose JPEG, PNG or WebP photos.");
         if (kind === "music" && !/\.(mp3|wav|m4a)$/i.test(file.name))
           throw new Error("Choose MP3, WAV or M4A audio.");
-        const r = await new Promise<{ url: string; id: string }>(
+        const ticket = await api<{direct:boolean;stagingId?:string;signedUrl?:string}>(
+          '/api/pages/'+page.id+'/upload-ticket','POST',{size:file.size});
+        const uploaded = await new Promise<{ url: string; id: string }>(
           (resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/api/pages/" + page.id + "/upload");
+            xhr.open(ticket.direct ? "PUT" : "POST", ticket.direct ? ticket.signedUrl! : "/api/pages/" + page.id + "/upload");
             xhr.upload.onprogress = (e) => {
               if (e.lengthComputable)
                 setProgress(Math.round((e.loaded / e.total) * 100));
@@ -167,10 +169,12 @@ export default function Creator({
             xhr.onerror = () =>
               reject(new Error("Connection lost. Please retry."));
             const form = new FormData();
-            form.append("file", file);
+            form.append(ticket.direct ? "" : "file", file);
             xhr.send(form);
           },
         );
+        const r = ticket.direct ? await api<{url:string;id:string}>(
+          '/api/pages/'+page.id+'/upload','POST',{stagingId:ticket.stagingId,mime:file.type}) : uploaded;
         dirty.current = true;
         setPage((p) =>
           p

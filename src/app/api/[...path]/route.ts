@@ -19,6 +19,7 @@ import { cleanPage, slugify } from "../../../lib/validation";
 import type { BirthdayPage } from "../../../types/birthday";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 const storageKey = (owner: string, page: string, file: string) =>
   `${owner}/${page}/${file.endsWith(".webp") ? "photos" : "music"}/${file}`;
 const attempts = new Map<string, { count: number; until: number }>();
@@ -141,11 +142,12 @@ async function handler(
           await supa()
         ).storage
           .from("birthday-assets")
-          .download(storageKey(page.userId, id, filename));
+          .createSignedUrl(storageKey(page.userId, id, filename), 60);
         if (error || !data) throw new Error("NOT_FOUND");
-        return new NextResponse(await data.arrayBuffer(), {
+        return new NextResponse(null, {
+          status: 307,
           headers: {
-            "Content-Type": data.type,
+            "Location": data.signedUrl,
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
           },
@@ -200,13 +202,38 @@ async function handler(
       }
       const previous = await readPage(path[1]);
       if (!previous) throw new Error("NOT_FOUND");
+      if (path[2] === "upload-ticket" && method === "POST") {
+        if (!cloud) return NextResponse.json({direct:false});
+        const body = await jsonBody(req);
+        const size = Number(body.size);
+        if (!Number.isFinite(size) || size <= 0 || size > 20 * 1024 * 1024)
+          throw new Error("Maximum file size is 20 MB.");
+        const stagingId = randomUUID();
+        const {data,error} = await (await supa()).storage.from("birthday-staging")
+          .createSignedUploadUrl(`${u.id}/${previous.id}/${stagingId}`);
+        if(error || !data) throw new Error("Could not prepare upload. Please retry.");
+        return NextResponse.json({direct:true,stagingId,signedUrl:data.signedUrl});
+      }
       if (path[2] === "upload") {
+        let file: File;
+        if(cloud && req.headers.get('content-type')?.includes('application/json')) {
+          const body = await jsonBody(req);
+          if(!/^[a-f0-9-]{36}$/.test(body.stagingId || '')) throw new Error("Invalid upload.");
+          const staging = (await supa()).storage.from('birthday-staging');
+          const key = `${u.id}/${previous.id}/${body.stagingId}`;
+          const {data,error} = await staging.download(key);
+          if(error || !data) throw new Error("Upload not found. Please retry.");
+          try { file = new File([await data.arrayBuffer()], 'upload', {type:String(body.mime || '')}); }
+          finally { await staging.remove([key]); }
+        } else {
         if (!req.headers.get('content-type')?.includes('multipart/form-data; boundary='))
           throw new Error('Choose a file and retry the upload. Multipart boundary is missing.');
         await boundedBody(req.clone(), 21 * 1024 * 1024);
         const form = await req.formData();
-        const file = form.get("file");
-        if (!(file instanceof File)) throw new Error("Choose a file.");
+        const uploadedFile = form.get("file");
+        if (!(uploadedFile instanceof File)) throw new Error("Choose a file.");
+        file = uploadedFile;
+        }
         if (file.size > 20 * 1024 * 1024)
           throw new Error("Maximum file size is 20 MB.");
         let bytes = Buffer.from(await file.arrayBuffer());
